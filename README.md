@@ -35,11 +35,23 @@ To build a smart system that can:
 
 ---
 
-## 💻 How to Run the Project
+
+![Screenshot 2025-06-11 181453](https://github.com/user-attachments/assets/9562d664-24a1-4352-9632-67193d2d366f)
+
+
+![Screenshot 2025-06-11 181554](https://github.com/user-attachments/assets/574883c4-0df9-48af-8a19-5d0a1a384ccc)
+
+
+![Screenshot 2025-06-11 181717](https://github.com/user-attachments/assets/ac70f7c2-41ef-4e14-a3e9-18ed1d2978f9)
+
+
+
+
+
+
+
 
 1. **Clone this repository**
 ```bash
 git clone https://github.com/Pavan2207/Telecom-Network-Security-Innovation.git
-cd Telecom-Network-Security-Innova![Screenshot 2025-06-11 181453](https://github.com/user-attachments/assets/7b080590-5cad-467b-a261-21d38fcfa56a)
-tion![Screenshot 2025-06-11 181554](https://github.com/user-attachments/assets/fa91859f-3f56-4dbe-a0cc-48a64a43872a)
-
+cd Telecom-Network-Security-Innovation
