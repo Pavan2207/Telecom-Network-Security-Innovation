@@ -1,0 +1,3 @@
+timestamp,source_ip,destination_ip,protocol,port,size_bytes,http.host,http.request.uri,http.request.method,raw_payload
+"Jun 10, 2025 16:30:48.560223000 India Standard Time",192.168.1.7,52.187.79.109,HTTPS,443,55,,,,
+"Jun 10, 2025 16:30:48.655647000 India Standard Time",52.187.79.109,192.168.1.7,HTTPS,49854,66,,,,

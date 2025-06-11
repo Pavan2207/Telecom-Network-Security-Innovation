@@ -1,0 +1,396 @@
+streamlit
+scapy
+streamlit
+pandas
+scapy
+transformers
+torch
+jinja2
+requests
+beautifulsoup4
+# app.py
+
+import os
+import streamlit as st
+from datetime import datetime
+import pandas as pd
+import re # For regex operations in analyzer.py, included here for context
+# Corrected import for app.py itself:
+# If app.py is located directly inside the 'backend' folder,
+# and packet_sniffer.py and analyzer.py are siblings in the same folder,
+# then import them directly without the 'backend.' prefix.
+import packet_sniffer # This assumes packet_sniffer.py is in the same directory as app.py
+import analyzer # This assumes analyzer.py is in the same directory as app.py
+import flagged_sites # Added to access the flagged domains list
+
+
+# Set Streamlit page configuration for a wider layout and title
+st.set_page_config(page_title="GenAI Telecom Detection", layout="wide")
+st.title("📡 GenAI-Assisted Anomaly Detection System")
+
+# Define the log file path. It will be placed in a 'logs' directory.
+# The filename includes a timestamp to ensure uniqueness.
+# We'll use a session state variable to keep track of the last captured log file
+if 'log_file' not in st.session_state:
+    st.session_state.log_file = None
+
+# Ensure the logs directory exists
+os.makedirs("logs", exist_ok=True)
+
+# Button to start packet capture
+if st.button("🚦 Start Packet Capture"):
+    current_log_file = f"logs/traffic_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    st.session_state.log_file = current_log_file # Store the current log file path
+    st.success(f"Simulating network traffic capture to {current_log_file} for 30 seconds...")
+    # Call the capture_packets function from the packet_sniffer module
+    # In a real system, this would trigger Tshark or Scapy capture.
+    packet_sniffer.capture_packets(st.session_state.log_file, duration=30)
+    st.info(f"Traffic data simulated and saved to: {st.session_state.log_file}")
+
+# Button to analyze captured traffic
+if st.button("🔍 Analyze Captured Traffic"):
+    # Check if a log file has been captured
+    if st.session_state.log_file and os.path.exists(st.session_state.log_file):
+        st.success("Analyzing...")
+        # Call the analyze_traffic function from the analyzer module
+        report = analyzer.analyze_traffic(st.session_state.log_file)
+        st.subheader("🚨 Anomaly Report:")
+        # Display the analysis report in a code block for clear formatting
+        st.code(report)
+    else:
+        # Warn the user if no log file is found
+        st.warning("No traffic log found. Please capture first.")
+
+# --- Section to display captured traffic ---
+st.subheader("📊 Captured Network Traffic (Latest Batch - Wireshark-like Parsed View)")
+st.markdown("""
+This table displays a **parsed and structured view** of captured network traffic, simulating the high-level information you'd typically see in tools like Wireshark or from `tshark`'s output (e.g., when exporting to CSV).
+
+**Note:** This application *simulates* capture for demonstration purposes. In a real-world scenario, you would use `tshark` (Wireshark's command-line tool) to capture live traffic or process `.pcap` files.
+
+**Example `tshark` command to get similar CSV output:**
+```bash
+tshark -r your_capture.pcap -T fields -e frame.time -e ip.src -e ip.dst -e tcp.srcport -e tcp.dstport -e http.host -e http.request.uri -e http.request.method -E header=y -E separator=, > traffic_log.csv
+```
+""")
+if st.session_state.log_file and os.path.exists(st.session_state.log_file):
+    try:
+        df_traffic = pd.read_csv(st.session_state.log_file)
+        if not df_traffic.empty:
+            st.dataframe(df_traffic) # Display the captured traffic in a DataFrame
+        else:
+            st.info("No traffic data in the latest log file.")
+    except Exception as e:
+        st.error(f"Error loading traffic data: {e}")
+else:
+    st.info("Start packet capture to see traffic data here.")
+
+
+# --- Section to display flagged websites ---
+st.subheader("🚩 Flagged Websites List")
+with st.expander("View Currently Flagged Domains"):
+    flagged_domains_list = flagged_sites.get_flagged_domains() # Use the new getter function
+    st.write("These domains are currently flagged as suspicious:")
+    for domain in flagged_domains_list:
+        st.write(f"- {domain}")
+    st.caption("This list is for demonstration and can be updated in `backend/flagged_sites.py`.")
+
+
+# --- Dummy backend/packet_sniffer.py content (for a runnable example) ---
+# In a real project, this would be in 'backend/packet_sniffer.py'
+# For demonstration purposes, a simplified version is included here.
+
+# backend/packet_sniffer.py content:
+"""
+This module simulates network packet sniffing for a telecom anomaly detection system.
+It now captures more detailed (mock) HTTP data, including raw payloads for analysis.
+"""
+import time
+import pandas as pd
+import os
+from datetime import datetime
+import random # For simulating varied data
+
+def capture_packets(output_file, duration=30):
+    """
+    Simulates capturing network packets and saving them to a CSV file.
+    Includes mock data for HTTP host, URI, and a 'payload' for analysis.
+    Focuses generation on HTTP/HTTPS traffic for demonstration.
+
+    In a real system, this function would leverage tools like Tshark or Scapy:
+    - **Tshark Integration (External Command):**
+      You would run `tshark` as a subprocess to capture and export data:
+      `command = f"tshark -i <interface> -a duration:{duration} -T fields -e frame.time -e ip.src -e ip.dst -e tcp.srcport -e tcp.dstport -e http.host -e http.request.uri -e http.request.method -E header=y -E separator=, > {output_file}"`
+      `subprocess.run(command, shell=True)`
+      (Note: This requires tshark to be installed and proper permissions).
+    - **Scapy Integration (Python Library):**
+      You could use Scapy's `sniff` function to capture packets directly within Python,
+      then dissect and extract relevant fields for your CSV log.
+    """
+    print(f"[{time.strftime('%H:%M:%S')}] Simulating packet capture to {output_file} for {duration} seconds...")
+    mock_packets = []
+    start_time = time.time()
+    packet_id = 0
+
+    common_hosts = ["example.com", "securebank.com", "socialmedia.net", "newsportal.org", "api.service.com"]
+    common_uris = ["/", "/login", "/products", "/search?q=data", "/submit", "/dashboard"]
+    insecure_payload_snippets = ["username=test&password=password123", "email=user@example.com&pass=secret", "login_id=admin&pass_key=qwerty", "auth_token=supersecret"]
+    secure_payload_snippets = ["encrypted_data_xyz", "session_token_abc", "jwt_token_hash"]
+    onion_domains = ["example.onion", "darkmarket.onion", "hiddenforum.onion"]
+
+    while time.time() - start_time < duration:
+        src_ip = f"192.168.1.{random.randint(1, 254)}"
+        dst_ip = f"10.0.0.{random.randint(1, 254)}"
+        
+        # Prioritize HTTP/HTTPS traffic simulation
+        protocol = "TCP"
+        port = random.choice([80, 443])
+        
+        size = random.randint(64, 500)
+
+        host = random.choice(common_hosts)
+        uri = random.choice(common_uris)
+        payload = ""
+        method = "GET"
+
+        # Simulate insecure HTTP traffic
+        if port == 80 and random.random() < 0.4: # Higher chance for HTTP
+            if random.random() < 0.3: # Simulate an insecure password attempt
+                payload = random.choice(insecure_payload_snippets)
+                method = "POST"
+            else:
+                payload = random.choice(secure_payload_snippets)
+                method = "GET" if random.random() < 0.8 else "POST"
+        elif port == 443 and random.random() < 0.8: # Even higher chance for HTTPS
+            # HTTPS traffic will generally have encrypted payloads,
+            # but we can still simulate some patterns for demonstration
+            payload = random.choice(secure_payload_snippets)
+            method = "GET" if random.random() < 0.8 else "POST"
+            
+        # Simulate some onion traffic occasionally for demonstration
+        if random.random() < 0.05: # Small chance of onion
+            host = random.choice(onion_domains)
+
+        # Simulate email and links in some payloads
+        if random.random() < 0.15:
+            if random.random() < 0.5:
+                payload += f" email=malformed_email.com " # Malformed email
+            else:
+                payload += f" email={random.choice(['user@valid.com', 'test@domain.org'])} "
+
+        if random.random() < 0.15:
+            if random.random() < 0.5:
+                payload += f" link=htp://badlink.com " # Malformed URL
+            else:
+                payload += f" link=https://{random.choice(['secure.net', 'legit.org'])} "
+
+
+        mock_packets.append({
+            "timestamp": datetime.now().isoformat(),
+            "source_ip": src_ip,
+            "destination_ip": dst_ip,
+            "protocol": protocol,
+            "port": port,
+            "size_bytes": size,
+            "http.host": host, # Always include host for HTTP/HTTPS simulation
+            "http.request.uri": uri, # Always include URI for HTTP/HTTPS simulation
+            "http.request.method": method,
+            "raw_payload": payload, # Raw payload for analysis
+            "status": "normal" # Default status, analyzer will change if anomaly
+        })
+        packet_id += 1
+        time.sleep(0.01) # Simulate capturing speed
+
+    df = pd.DataFrame(mock_packets)
+    df.to_csv(output_file, index=False)
+    print(f"[{time.strftime('%H:%M:%S')}] Captured {len(mock_packets)} packets and saved to {output_file}.")
+
+
+# --- Dummy backend/analyzer.py content (for a runnable example) ---
+# In a real project, this would be in 'backend/analyzer.py'
+# For demonstration purposes, a simplified version is included here.
+
+# backend/analyzer.py content:
+"""
+This module provides functions for analyzing captured network traffic logs
+for anomaly detection, including new checks for passwords, emails, links, and onion sites.
+"""
+import pandas as pd
+import io
+import os
+import re # For regex operations
+import flagged_sites # Corrected import for sibling module
+
+
+# Regex for basic email validation (more robust than previous)
+EMAIL_REGEX = r"(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|\"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*\")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])"
+# Regex for basic URL validation (improved)
+URL_REGEX = r"https?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[\da-fA-F]{2}))+"
+
+
+def validate_email_syntax(email):
+    """Checks if an email string has a valid basic syntax using a more comprehensive regex."""
+    return re.fullmatch(EMAIL_REGEX, email) is not None
+
+def validate_url_syntax(url):
+    """Checks if a URL string has a valid basic syntax using a more comprehensive regex."""
+    return re.fullmatch(URL_REGEX, url) is not None
+
+
+def analyze_traffic(log_file):
+    """
+    Analyzes a network traffic log file (CSV) to detect various anomalies.
+    """
+    if not os.path.exists(log_file):
+        return "Error: Log file not found."
+
+    try:
+        df = pd.read_csv(log_file)
+        if df.empty:
+            return "No data to analyze in the log file."
+
+        # Store flags with type, message, and timestamp
+        flags = []
+        # Keywords commonly found in password fields or credential data
+        password_keywords = ["password", "pwd", "pass", "secret", "login_id", "credentials", "auth_token"]
+        
+        email_patterns_found = []
+        url_patterns_found = []
+
+
+        for index, row in df.iterrows():
+            timestamp = row.get("timestamp", "N/A")
+            src_ip = row.get("source_ip", "N/A")
+            dst_ip = row.get("destination_ip", "N/A")
+            protocol = row.get("protocol", "N/A")
+            port = row.get("port", "N/A")
+            http_host = str(row.get("http.host", "")).strip() # Ensure it's string and clean whitespace
+            http_uri = str(row.get("http.request.uri", "")).strip()
+            http_method = str(row.get("http.request.method", "")).strip()
+            raw_payload = str(row.get("raw_payload", "")).lower() # Convert to string and lowercase for search
+
+            # 1. Insecure HTTP Traffic
+            if protocol == "TCP" and port == 80 and http_host:
+                flags.append({
+                    "type": "Insecure HTTP",
+                    "message": f"connection detected: {src_ip} -> http://{http_host}{http_uri}",
+                    "timestamp": timestamp
+                })
+
+            # 2. Clear-text Password/Credential Login Detection
+            if http_method == "POST" and any(keyword in raw_payload for keyword in password_keywords):
+                # This is a heuristic; real detection is more complex.
+                flags.append({
+                    "type": "Possible Clear-text Password/Credential Login",
+                    "message": f"detected from {src_ip} to {http_host}{http_uri} (Payload snippet: '{raw_payload[:50]}...')",
+                    "timestamp": timestamp
+                })
+
+            # 3. Onion Website Access Detection and Flagged Domain Check
+            if http_host.endswith(".onion"):
+                flags.append({
+                    "type": "Onion Site Access",
+                    "message": f"detected: {src_ip} -> {http_host}",
+                    "timestamp": timestamp
+                })
+            elif flagged_sites.is_flagged(http_host):
+                flags.append({
+                    "type": "Flagged Domain Access",
+                    "message": f"detected: {src_ip} -> {http_host}{http_uri}",
+                    "timestamp": timestamp
+                })
+
+            # 4. Email Syntax and Pattern Check in Payload
+            found_emails = re.findall(EMAIL_REGEX, raw_payload)
+            for email in found_emails:
+                if not validate_email_syntax(email):
+                    flags.append({
+                        "type": "Malformed Email",
+                        "message": f"detected in traffic from {src_ip}: '{email}'",
+                        "timestamp": timestamp
+                    })
+                else:
+                    email_patterns_found.append(email) # Collect valid emails for general insight
+
+            # 5. Link Syntax and Malicious Link Check in Payload/URI
+            # Combine HTTP URI and raw_payload for comprehensive URL scanning
+            text_to_scan_for_urls = raw_payload + " " + http_uri
+            found_urls = re.findall(URL_REGEX, text_to_scan_for_urls)
+            for url in found_urls:
+                if not validate_url_syntax(url):
+                    flags.append({
+                        "type": "Malformed URL",
+                        "message": f"detected in traffic from {src_ip}: '{url}'",
+                        "timestamp": timestamp
+                    })
+                elif flagged_sites.is_flagged(url): # Check if the URL itself contains a flagged domain
+                    flags.append({
+                        "type": "Malicious Link",
+                        "message": f"detected in traffic from {src_ip}: '{url}'",
+                        "timestamp": timestamp
+                    })
+                else:
+                    url_patterns_found.append(url) # Collect valid URLs for general insight
+
+        report_buffer = io.StringIO()
+        report_buffer.write("--- Advanced Anomaly Detection Report ---\n")
+        report_buffer.write(f"Total packets analyzed: {len(df)}\n\n")
+
+        if flags:
+            report_buffer.write("### 🚨 Detected Anomalies & Warnings (Timestamped) ###\n")
+            for flag in flags:
+                report_buffer.write(f"- [{flag['timestamp']}] {flag['type']}: {flag['message']}\n")
+        else:
+            report_buffer.write("✅ No significant anomalies or warnings detected in this traffic sample.\n")
+
+        report_buffer.write("\n--- Traffic Statistics & Insights ---\n")
+        report_buffer.write(f"Unique Source IPs: {df['source_ip'].nunique()}\n")
+        report_buffer.write(f"Unique Destination IPs: {df['destination_ip'].nunique()}\n")
+        report_buffer.write(f"Most common protocol: {df['protocol'].mode().iloc[0] if not df['protocol'].empty else 'N/A'}\n")
+        
+        if email_patterns_found:
+            report_buffer.write(f"\nEmails found in traffic: {', '.join(sorted(list(set(email_patterns_found))))}\n")
+        if url_patterns_found:
+            report_buffer.write(f"\nURLs found in traffic: {', '.join(sorted(list(set(url_patterns_found))))}\n")
+
+
+        return report_buffer.getvalue()
+
+    except Exception as e:
+        return f"An error occurred during analysis: {e}"
+
+# --- Dummy backend/flagged_sites.py content (for a runnable example) ---
+# In a real project, this would be in 'backend/flagged_sites.py'
+# For demonstration purposes, a simplified version is included here.
+
+# backend/flagged_sites.py content:
+"""
+This module contains a list of dummy flagged sites for demonstration purposes.
+It also includes some dummy .onion domains and a way to retrieve the list.
+"""
+
+# Hardcoded list of flagged domains, including some mock .onion sites
+FLAGGED_DOMAINS = [
+    "malicious.com",
+    "phishing.net",
+    "suspicious.org",
+    "examplebadsite.com",
+    "badonionlink.onion", # Dummy .onion for testing
+    "phishing-tor.onion",  # Another dummy .onion
+    "evilurl.com/malicious_payload", # Example of a full malicious URL
+    "http://insecure.com/login", # Example of an insecure login page
+]
+
+def is_flagged(domain_or_url):
+    """
+    Checks if a given domain or full URL contains any of the flagged patterns.
+    """
+    # Normalize input to lowercase for case-insensitive comparison
+    input_lower = domain_or_url.lower()
+    return any(flagged_pattern in input_lower for flagged_pattern in FLAGGED_DOMAINS)
+
+def get_flagged_domains():
+    """
+    Returns the list of currently flagged domains/patterns.
+    """
+    return sorted(FLAGGED_DOMAINS)  tshark caputure and fing hyttp and https and find alreat for https and htpp login and password and Gen AI to simulate threats, predict breach points, and monitor dark web chatter around telecom exploits.
